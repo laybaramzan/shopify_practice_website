@@ -207,47 +207,48 @@
     });
   });
 </script>
+{% comment %} Add to Cart with AJAX {% endcomment %}
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    const form = document.getElementById('product-form');
+    const form = document.getElementById('product-form'); // Get the product form
 
     form.addEventListener('submit', function (e) {
-      e.preventDefault(); // stop default page reload
+      e.preventDefault(); // Prevent default form submission
 
+      // Get variant ID and quantity
       const formData = new FormData(form);
       const variantId = formData.get('id');
       const quantity = form.querySelector('input[name="quantity"]').value || 1;
 
+      // Send product data to Shopify cart
       fetch('/cart/add.js', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          Accept: 'application/json',
         },
         body: JSON.stringify({
           id: variantId,
-          quantity: parseInt(quantity)
+          quantity: parseInt(quantity),
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log('✅ Product added to cart:', data);
+
+          updateCartCount(); // Update cart count in header
+          alert(`${data.product_title} added to cart!`); // Show success alert
         })
-      })
-      .then(res => res.json())
-      .then(data => {
-        console.log('✅ Product added to cart:', data);
+        .catch((err) => {
+          console.error('❌ Error adding to cart:', err);
+          alert('Something went wrong. Try again!'); // Show error alert
+        });
 
-        // Optional: update cart count
-        updateCartCount();
-
-        // Optional: show a success popup
-        alert(`${data.product_title} added to cart!`);
-      })
-      .catch(err => {
-        console.error('❌ Error adding to cart:', err);
-        alert('Something went wrong. Try again!');
-      });
-
+      // Get latest cart data and update cart count
       function updateCartCount() {
         fetch('/cart.js')
-          .then(res => res.json())
-          .then(cart => {
+          .then((res) => res.json())
+          .then((cart) => {
             const countEl = document.getElementById('cart-count');
             if (countEl) {
               countEl.textContent = cart.item_count;
