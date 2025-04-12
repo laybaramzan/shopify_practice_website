@@ -1,0 +1,302 @@
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js" defer></script>
+
+<div class="max-w-6xl mx-auto my-8">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    {% comment %} product media {% endcomment %}
+    <div>
+      <div class="hidden md:block">
+        {% for media in product.media %}
+          <div class="h-100 overflow-hidden p-2">
+            {% render 'product-media', media: media %}
+          </div>
+        {% endfor %}
+      </div>
+      <div class="md:hidden">
+        <div class="swiper h-96">
+          <div class="swiper-wrapper">
+            {% for media in product.media %}
+              <div class="swiper-slide">
+                <div class="h-80 overflow-hidden p-2">
+                  {% render 'product-media', media: media %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          <div class="swiper-pagination"></div>
+
+          <div class="swiper-button-prev"></div>
+          <div class="swiper-button-next"></div>
+        </div>
+      </div>
+    </div>
+    {% comment %} product information {% endcomment %}
+    <div>
+      {% form 'product', product, id: 'product-form', novalidate: 'novalidate' %}
+        <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+        {% for block in section.blocks %}
+          {% case block.type %}
+            {% when 'vendor' %}
+              <div class="my-3">
+                <div class="text-xs text-gray-500">
+                  {{ product.vendor }}
+                </div>
+              </div>
+            {% when 'title' %}
+              <div class="my-3">
+                <div class="text-3xl text-gray-900">
+                  {{ product.title }}
+                </div>
+              </div>
+            {% when 'price' %}
+              <div class="my-3" id="price-{{ section.id }}">
+                <div>
+                  {% assign product_price = product.selected_or_first_available_variant %}
+                  <span class="text-base text-gray-500 line-through">{{ product_price.compare_at_price | money }}</span>
+                  <span class="text-lg text-gray-900">{{ product_price.price | money }}</span>
+                  {% if product_price.price < product_price.compare_at_price %}
+                    <span class="px-5 py-1 mx-4 text-sm font-bold text-white rounded-full bg-red-500">Sale</span>
+                  {% endif %}
+                </div>
+              </div>
+            {% when 'variant-Selector' %}
+              <div class="my-3">
+                {% unless product.has_only_default_variant %}
+                  <variant-selector data-url="{{ product.url }}" data-section="{{ section.id }}">
+                    {% for option in product.options_with_values %}
+                      <label for="option-{{ section.id }}-{{ forloop.index0 }}">{{ option.name }}</label>
+                      <div class="my-2">
+                        <select
+                          name="option[{{ option.name|escape }}]"
+                          id="option-{{ section.id }}-{{ forloop.index0 }}"
+                          class="w-full border py-3 px-3"
+                        >
+                          {% for value in option.values %}
+                            <option
+                              value="{{ value|escape }}"
+                              {% if option.selected_value == value %}
+                                selected="selected"
+                              {% endif %}
+                            >
+                              {{ value }}
+                            </option>
+                          {% endfor %}
+                        </select>
+                      </div>
+                      <script type="application/json">
+                        {{ product.variants|json }}
+                      </script>
+                    {% endfor %}
+                  </variant-selector>
+                {% endunless %}
+              </div>
+            {% when 'quantity' %}
+              <div class="my-3">
+                <label for="quantity-{{ section.id }}">Quantity</label>
+                <input
+                  type="number"
+                  name="quantity"
+                  id="quantity-{{ section.id }}"
+                  value="1"
+                  min="1"
+                  class="w-full border py-3 px-3"
+                >
+              </div>
+            {% when 'description' %}
+              <div class="my-3">
+                <p class="text-gray-700">{{ product.description }}</p>
+              </div>
+            {% when 'checkout-button' %}
+              <div class="my-3">
+                <button
+                  type="submit"
+                  name="add"
+                  class="w-full py-4 px-6 my-2 rounded-sm bg-gray-900 text-white hover:bg-gray-700"
+                  {% if product.selected_or_first_available_variant == false %}
+                    disabled
+                  {% endif %}
+                >
+                  {% if product.selected_or_first_available_variant == false %}
+                    Sold Out
+                  {%- else %}
+                    Add To Cart
+                  {% endif %}
+                </button>
+              </div>
+            {% else %}
+
+          {% endcase %}
+        {% endfor %}
+      {% endform %}
+    </div>
+  </div>
+</div>
+<script>
+    class VariantSelector extends HTMLElement {
+      constructor() {
+        super();
+        this.addEventListener('change', this.onvariantchange);
+      }
+      onvariantchange() {
+        {% comment %} console.log('i have change the variant selector'); {% endcomment %}
+         this.getSelectedOptions();
+         this.getSelectedVariants();
+         if(this.currentVariant){ 
+          this.updateUrl();
+          this.updateFormId();
+          this.updatePrice();
+        }
+        
+      }
+      getSelectedOptions(){
+        this.options=Array.from(this.querySelectorAll('select'),(select)=>select.value);
+        {% comment %} console.log(this.options); {% endcomment %}
+      }
+      getVariantJSON(){
+        this.variantData=this.variantData||JSON.parse(this.querySelector('[type="application/json"]').textContent);
+        return this.variantData;
+      }
+      getSelectedVariants(){
+        this.currentVariant=this.getVariantJSON().find(
+          (variant)=>{
+            const findings=!variant.options.map(
+              (option,index)=>{
+               return this.options[index]===option;
+              }
+            ).includes(false);
+            if (findings) return variant;
+           
+          }
+        );
+  {% comment %} console.log(this.currentVariant); {% endcomment %}
+      }
+      updateUrl(){
+        if(!this.currentVariant) return;
+        window.history.replaceState({},'',`${this.dataset.url}?variant=${this.currentVariant.id}`)
+      }
+      updateFormId(){
+        const form_input=document.querySelector("#product-form").querySelector('input[name="id"]');
+        form_input.value=this.currentVariant.id;
+      }
+      updatePrice(){
+        fetch(`${this.dataset.url}?variant=${this.currentVariant.id}&section_id=${this.dataset.section}`)
+        .then((response)=>response.text())
+        .then((responseText)=>{
+          const id=`price-${this.dataset.section}`;
+          const html = new DOMParser().parseFromString(responseText,'text/html')
+          const oldprice=document.getElementById(id);
+          const newprice=html.getElementById(id);
+          if(oldprice&&newprice) oldprice.innerHTML=newprice.innerHTML;
+        })
+      }
+    }
+    customElements.define('variant-selector', VariantSelector);
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const swiper = new Swiper('.swiper', {
+      direction: 'horizontal',
+      pagination: {
+        el: '.swiper-pagination',
+      },
+      navigation: {
+        prevEl: '.swiper-button-prev',
+        nextEl: '.swiper-button-next',
+      },
+    });
+  });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('product-form');
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault(); // stop default page reload
+
+      const formData = new FormData(form);
+      const variantId = formData.get('id');
+      const quantity = form.querySelector('input[name="quantity"]').value || 1;
+
+      fetch('/cart/add.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          id: variantId,
+          quantity: parseInt(quantity)
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        console.log('✅ Product added to cart:', data);
+
+        // Optional: update cart count
+        updateCartCount();
+
+        // Optional: show a success popup
+        alert(`${data.product_title} added to cart!`);
+      })
+      .catch(err => {
+        console.error('❌ Error adding to cart:', err);
+        alert('Something went wrong. Try again!');
+      });
+
+      function updateCartCount() {
+        fetch('/cart.js')
+          .then(res => res.json())
+          .then(cart => {
+            const countEl = document.getElementById('cart-count');
+            if (countEl) {
+              countEl.textContent = cart.item_count;
+            }
+          });
+      }
+    });
+  });
+</script>
+
+{% schema %}
+{
+  "name": "product",
+  "blocks": [
+    {
+      "type": "vendor",
+      "name": "Vendor",
+      "limit": 1
+    },
+    {
+      "type": "price",
+      "name": "Price",
+      "limit": 1
+    },
+    {
+      "type": "variant-Selector",
+      "name": "Variant Selector",
+      "limit": 1
+    },
+    {
+      "type": "title",
+      "name": "Title",
+      "limit": 1
+    },
+    {
+      "type": "quantity",
+      "name": "Quantity",
+      "limit": 1
+    },
+    {
+      "type": "description",
+      "name": "Description",
+      "limit": 1
+    },
+    {
+      "type": "checkout-button",
+      "name": "Checkout Button",
+      "limit": 1
+    }
+  ]
+}
+{% endschema %}
