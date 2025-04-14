@@ -132,6 +132,7 @@
     </div>
   </div>
 </div>
+{% comment %} to change url,id and price {% endcomment %}
 <script>
     class VariantSelector extends HTMLElement {
       constructor() {
@@ -193,6 +194,7 @@
     }
     customElements.define('variant-selector', VariantSelector);
 </script>
+{% comment %} for swipper {% endcomment %}
 <script>
   document.addEventListener('DOMContentLoaded', function () {
     const swiper = new Swiper('.swiper', {
